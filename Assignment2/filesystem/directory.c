@@ -7,16 +7,16 @@
 #include"directory.h"
 
 void
-set_dirent(dirent* dd, const char* name, int inum)
+set_dirent(dirent* d, const char* name, int inum)
 {
     if(strlen(name) > MAX_FNAME){
-        strncpy(&(dd->name), name, MAX_FNAME);
-        strcat(&(dd->name), '\0');
+        strncpy(&(d->name), name, MAX_FNAME);
+        strcat(&(d->name), '\0');
     }
     else
-        strcpy(&(dd->name), name);
+        strcpy(&(d->name), name);
 
-    dd->inum = inum;
+    d->inum = inum;
 }
 
 void
@@ -89,16 +89,16 @@ tree_lookup(const char* path)
 
     path++;
     int inum = 0;
-    slist* part = s_split(path, '/');
+    slist* pathlist = s_split(path, '/');
 
-    while(part){
+    while(pathlist){
         inode* dd = get_inode(inum);
-        inum = directory_lookup(inum, part->data);
+        inum = directory_lookup(inum, pathlist->data);
 
         if(inum < 0)
             return -ENOENT;
 
-        part = part->next;
+        pathlist = pathlist->next;
     }
 
     return inum;
@@ -135,6 +135,14 @@ directory_delete(inode* dd, const char* name)
     set_dirent(d, dtmp[lastindex].name, dtmp[lastindex].inum);
 
     inode* deletednode = get_inode(inum);
+
+    if(deletednode->entries >= 0){
+        slist* dirlist = directory_list(inum);
+
+        for(; dirlist != 0; dirlist = dirlist->next)
+            directory_delete(deletednode, dirlist->data);
+    }
+
     free_inode(inum);
 
     dtmp[lastindex].inum = -1;
@@ -147,9 +155,8 @@ directory_delete(inode* dd, const char* name)
 }
 
 slist*
-directory_list(const char* path)
+directory_list(int inum)
 {
-    int inum = tree_lookup(path);
     inode* dd = get_inode(inum);
 
     dirent* d;

@@ -17,4 +17,4 @@ void directory_put(inode* dd, const char* name, int inum);
 int directory_lookup(inode* dd, const char* name);
 int tree_lookup(const char* path);
 void directory_delete(inode* dd, const char* name);
-slist* directory_list(const char* path);
+slist* directory_list(int inum);
