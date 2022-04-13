@@ -1,3 +1,4 @@
+#include<time.h>
 #include<errno.h>
 #include<alloca.h>
 #include<string.h>
@@ -28,12 +29,13 @@ storage_stat(const char *path, struct stat *st)
     int inum = tree_lookup(path);
     if (inum < 0){
         printf("    + invalid inum");
-        return inum;
+        return -ENOENT;
     }
 
     inode *node = get_inode(inum);
 
-    memset(st, 0, sizeof(struct stat));
+    st = {0};
+
     st_ino = inum;
     st->st_mode = node->mode;
     st->st_uid = node->uid;
@@ -56,7 +58,7 @@ storage_read(const char *path, char *buf, size_t size, off_t offset)
     int inum = tree_lookup(path);
     if (inum < 0){
         printf("    + invlaid inum");
-        return inum;
+        return -ENOENT;
     }
 
     inode *node = get_inode(inum);
@@ -155,7 +157,7 @@ storage_truncate(const char *path, off_t size)
     int inum = tree_lookup(path);
     if(inum < 0){
         printf("    + invalid inum");
-        return inum;
+        return -ENOENT;
     }
 
     inode* node = get_inode(inum);
@@ -206,7 +208,9 @@ storage_mknod(const char *path, int mode)
 
         parentdd = dd;
         pathlist = pathlist->next;
-    } 
+    }
+
+    return 0; 
 }
 
 slist*
@@ -264,10 +268,43 @@ storage_access(const char *path, int mode)
         return -ENOENT;
     }
 
-    inode* node = get_inode(inum);
+    if(mode == 0)
+        return 0;
 
-    if((node->mode & mode) > 0)
+    inode* node = get_inode(inum);
+    uid_t uid = getuid();
+    gid_t gid = getgid();
+    int res;
+
+    if(node->uid == uid)
+        res = (node->mode >> 2*3) & mode;
+    else if(node->gid == gid)
+        res = (node->mode >> 3) & mode;
+    else
+        res = node->mode & mode;
+
+    if(res == mode)
         return 0;
     
     return -EACCES;
+}
+
+int
+storage_utimens(const char *path, const struct timespec ts[2])
+{
+    printf("storage_utimens()");
+
+    int inum = tree_lookup(path);
+
+    if(inum < 0){
+        printf("    + invalid path");
+        return -ENOENT;
+    }
+
+    inode* node = get_inode(inum);
+
+    node->atime = ts[0].tv_sec;
+    node->mtime = ts[1].tv_sec;
+
+    return 0;
 }

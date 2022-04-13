@@ -1,3 +1,4 @@
+#include<time.h>
 #include<sys/stat.h>
 #include<sys/types.h>
 
@@ -12,3 +13,4 @@ int storage_mknod(const char *path, int mode);
 slist* storage_list(const char *path);
 int storage_unlink(const char *path);
 int storage_access(const char *path, int mode);
+int storage_utimens(const char *path, const struct timespec ts[2]);
