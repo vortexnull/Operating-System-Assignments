@@ -59,7 +59,7 @@ int
 fs_truncate(const char *path, off_t size)
 {
     // printf("\nunlink @ %s\n", path);
-    return storage_unlink(path);
+    return storage_truncate(path, size);
 }
 
 int
@@ -163,6 +163,17 @@ fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, st
     return 0;
 }
 
+int
+fs_rename(const char *from, const char *to){
+    //printf("rename(%s => %s) -> %d\n", from, to, rv);
+    return storage_rename(from, to);;
+}
+
+fs_link(const char *from, const char *to){ 
+    //printf("link(%s => %s) -> %d\n", from, to, rv);
+    return storage_link(to, from);;
+}
+
 struct fuse_operations fs_ops;
 
 void
@@ -182,6 +193,8 @@ fs_init_ops(struct fuse_operations* ops)
     ops->read        = fs_read;
     ops->write       = fs_write;
     ops->readdir     = fs_readdir;
+    ops->rename      = fs_rename;
+    ops->link        = fs_link;
 }   
 
 int

@@ -281,16 +281,70 @@ storage_unlink(const char *path)
         node = get_inode(parentdd);
         dd = directory_lookup(node, pathlist->data);
 
-        if(dd < 0){
-            // printf("    + invalid path\n");
+        if(dd < 0)
             return -ENOENT;
-        }
 
         pathlist = pathlist->next;
     }
 
     directory_delete(node, name);
 
+    return 0;
+}
+
+void
+parse_parent(const char *fullpath, char *dir) {
+    strcpy(dir, fullpath);
+
+    int wordLen = 0;
+    for (int ii = strlen(fullpath) - 1; fullpath[ii] != '/'; ii--) {
+        wordLen++;
+    }
+
+    if (wordLen == strlen(fullpath) - 1) {
+        dir[1] = '\0';
+    } else {
+        dir[strlen(fullpath) - wordLen - 1] = '\0';
+    }
+}
+
+char*
+parse_child(const char *fullpath, char *sub){
+    strcpy(sub, fullpath);
+
+    int wordLen = 0;
+    for (int ii = strlen(fullpath) - 1; fullpath[ii] != '/'; ii--) {
+        wordLen++;
+    }
+
+    sub += strlen(fullpath) - wordLen;
+    return sub;
+}
+
+int
+storage_link(const char *from, const char *to){
+
+    int toNum = tree_lookup(to);
+    if(toNum < 0)
+        return toNum;
+
+    char *fromParent = alloca(strlen(from) + 1);
+    char *fromChild = alloca(strlen(from) + 1);
+    parse_parent(from, fromParent);
+    fromChild = parse_child(from, fromChild);
+
+    int fromParentNum = tree_lookup(fromParent);
+    inode *fromParentNode = get_inode(fromParentNum);
+
+    directory_put(fromParentNode, fromChild, toNum);
+
+    return 0;
+}
+
+int
+storage_rename(const char *from, const char *to){
+    storage_link(to, from);
+    storage_unlink(from);
     return 0;
 }
 

@@ -127,7 +127,7 @@ delete_found: ;
     int inum = *((int*) tmp);
     inode* deletednode = get_inode(inum);
 
-    if(deletednode->entries >= 0){
+    if(deletednode->mode & 040000 == 040000){
         slist* dirlist = directory_list(inum);
 
         for(; dirlist != 0; dirlist = dirlist->next)
