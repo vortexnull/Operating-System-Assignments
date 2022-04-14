@@ -8,137 +8,123 @@
 #include"blocks.h"
 #include"directory.h"
 
-void
-set_dirent(dirent* d, const char* name, int inum)
+char*
+skip_string(char* data)
 {
-    if(strlen(name) > MAX_FNAME){
-        strncpy(d->name, name, MAX_FNAME);
-        d->name[MAX_FNAME] = 0;
-    }
-    else
-        strcpy(d->name, name);
+    while (*data != 0)
+        data++;
 
-    d->inum = inum;
-}
-
-void
-init_directory_block(dirent* d)
-{
-    for(int i = 0; i < MAX_DIR_ENTRIES; i++)
-        d[i].inum = -1;
+    return data + 1;
 }
 
 int
 directory_init()
 {
     int inum = alloc_inode();
-    inode* dd = get_inode(inum);
-    dd->mode = 040755;
-    dd->entries++;
 
-    dirent* d = get_inode_block(dd, 0);
-    init_directory_block(d);
+    inode* node = get_inode(inum);
+    node->mode = 040755;
+
+    char* selfname = ".";
+    char* parentname = "..";
+
+    directory_put(node, selfname, inum);
+    directory_put(node, parentname, inum);
 
     return inum;
-}
-
-void
-directory_put(inode* dd, const char* name, int inum)
-{   
-    int lastblock = (dd->size - 1) / BLOCK_SIZE;
-
-    dirent *d = get_inode_block(dd, lastblock);
-
-    if(d[MAX_DIR_ENTRIES - 1].inum == -1){
-        int i = dd->entries - lastblock * MAX_DIR_ENTRIES;
-        printf("directory_put %s %d %d\n", name, inum, lastblock);
-        set_dirent(&d[i], name, inum);
-    }
-    else{
-        d = (dirent*) get_block(add_inode_block(dd));
-        init_directory_block(d);
-        printf("directory_put %s %d %d\n", name, inum, lastblock + 1);
-        set_dirent(d, name, inum);
-    }
-
-    dd->size += sizeof(dirent);
-    dd->entries++;
 }
 
 int
 directory_lookup(inode* dd, const char* name)
 {
-    dirent* d;
-    int lastblock = (dd->size - 1) / BLOCK_SIZE;
+    char* data = get_inode_block(dd, 0);
+    char* text = data;
 
-    for(int blockindex = 0; blockindex <= lastblock; blockindex++){
-        d = (dirent*) get_inode_block(dd, blockindex);
-        
-        for(int i = 0; i < MAX_DIR_ENTRIES; i++){
-            if(d[i].inum != -1 && strcmp(d[i].name, name) == 0)
-                return d[i].inum;
+    for (int i = 0; i < dd->entries; i++) {
+        printf(" ++ lookup '%s' =? '%s' (%p)\n", name, text, text);
+
+        if (strcmp(text, name) == 0) {
+            text = skip_string(text);
+            int inum = *(int*)(text);
+            // printf("directory_lookup @ found inum: %d\n", inum);
+            return inum;
         }
+
+        text = skip_string(text);
+        text += sizeof(int);
     }
 
     return -ENOENT;
 }
+
 
 int
 tree_lookup(const char* path)
 {
     assert(path[0] == '/');
 
-    if(strcmp(path, "/") == 0)
+    if (strcmp(path, "/") == 0)
         return 0;
 
-    path = path + 1;
-    int inum = 0;
+    path += 1;
+
+    int dd = 0;
     slist* pathlist = s_split(path, '/');
 
     while(pathlist){
-        inode* dd = get_inode(inum);
-        inum = directory_lookup(dd, pathlist->data);
-        printf("tree_lookup %s %d\n", pathlist->data, inum);
+        printf("\ntree_lookup -> %s\n", pathlist->data);
+        inode* node = get_inode(dd);
+        dd = directory_lookup(node, pathlist->data);
 
-        if(inum < 0)
-            return -ENOENT;
-
+        if (dd < 0)
+            return -1;
+	 
         pathlist = pathlist->next;
     }
 
-    return inum;
+    return dd;
 }
 
-void
+int
+directory_put(inode* dd, const char* name, int inum)
+{
+    // printf("\ndirectory_put -> %s %d\n", name, inum);
+    int len = strlen(name) + 1;
+    if (dd->size + len + sizeof(inum) > BLOCK_SIZE)
+        return -ENOSPC;
+
+    char* data = get_inode_block(dd, 0);
+    memcpy(data + dd->size, name, len);
+    dd->size += len;
+
+    memcpy(data + dd->size, &inum, sizeof(inum));
+    dd->size += sizeof(inum);
+    dd->entries += 1;
+
+    return 0;
+}
+
+int
 directory_delete(inode* dd, const char* name)
 {
-    dirent* d;
-    int lastblock = (dd->size - 1) / BLOCK_SIZE;
-    int blockindex = 0;
+    char* data = get_inode_block(dd, 0);
+    char* text = data;
+    char* tmp = 0;
 
-    for(; blockindex <= lastblock; blockindex++){
-        d = (dirent*) get_inode_block(dd, blockindex);
-        
-        for(int i = 0; i < MAX_DIR_ENTRIES; i++){
-            if(d[i].inum != -1 && strcmp(d[i].name, name) == 0){
-                d = &d[i];
-                goto exitloop;
-            }
-        }
+    for (int i = 0; i < dd->entries; i++) {
+        if (strcmp(text, name) == 0)
+            goto delete_found;
+
+        text = skip_string(text);
+        text += sizeof(int);
     }
 
-    if(blockindex > lastblock){
-        printf("directory_delete(): no entry found\n");
-        return;
-    }
+    return -ENOENT;
 
-    exitloop: ;
+delete_found: ;
 
-    int inum = d->inum;
-    int lastindex = dd->entries - lastblock * MAX_DIR_ENTRIES - 1;
-    dirent* dtmp = get_inode_block(dd, lastblock);
-    set_dirent(d, dtmp[lastindex].name, dtmp[lastindex].inum);
-
+    tmp = skip_string(text);
+    int inum = *((int*) tmp);
     inode* deletednode = get_inode(inum);
 
     if(deletednode->entries >= 0){
@@ -148,31 +134,38 @@ directory_delete(inode* dd, const char* name)
             directory_delete(deletednode, dirlist->data);
     }
 
+    tmp += sizeof(int);
+
+    int pos = (int)(tmp - data);
+    // printf("text: %s | pos: %d | tmp : %s | sub: %d\n", text, pos, tmp, dd->size - pos);
+    memmove(text, tmp, dd->size - pos);
+    int len = (int)(tmp - text);
+    dd->size -= len;
+    dd->entries -= 1;
+
     free_inode(inum);
 
-    dtmp[lastindex].inum = -1;
-
-    if(lastindex == 0)
-        rem_inode_block(dd);
-
-    dd->size -= sizeof(dirent);
-    dd->entries--;
+    return 0;
 }
 
 slist*
 directory_list(int inum)
 {
     inode* dd = get_inode(inum);
+    char* data = get_inode_block(dd, 0);
+    char* text = data;
 
-    dirent* d;
+    // printf("+ directory_list()\n");
     slist* s = 0;
-    int lastblock = (dd->size - 1) / BLOCK_SIZE;
 
-    for(int blockindex = 0; blockindex <= lastblock; blockindex++){
-        d = (dirent*) get_inode_block(dd, blockindex);
-        
-        for(int i = 0; i < MAX_DIR_ENTRIES && d[i].inum != -1; i++)
-            s = s_cons(d[i].name, s);
+    for (int i = 0; i < dd->entries; i++) {
+        char* name = text;
+        text = skip_string(text);
+        int inum = *((int*) text);
+        text += sizeof(int);
+
+        // printf(" - %d: %s [%d]\n", i, name, inum);
+        s = s_cons(name, s);
     }
 
     return s;

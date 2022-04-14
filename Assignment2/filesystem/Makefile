@@ -9,7 +9,7 @@ fs: $(OBJS)
 	gcc $(CLFAGS) -o $@ $^ $(LDLIBS)
 
 %.o: %.c $(HDRS)
-	gcc $(CFLAGS) -c -o $@ $<
+	gcc $(CFLAGS) -fno-stack-protector -c -o $@ $<
 
 clean: unmount
 	rm -f fs *.o test.log data.fs

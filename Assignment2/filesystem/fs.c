@@ -16,56 +16,63 @@
 int
 fs_getattr(const char *path, struct stat *st)
 {
-    printf("getattr @ %s\n", path);
+    printf("\ngetattr @ %s\n", path);
     return storage_stat(path, st);
 }
 
 int
 fs_access(const char *path, int mask)
 {
-    printf("access @ %s\n", path);
+    // printf("\naccess @ %s\n", path);
     return storage_access(path, mask);
+}
+
+int
+fs_mknod(const char* path, mode_t mode, dev_t rdev)
+{
+    // printf("\nmknod @ %s\n", path);
+    return storage_mknod(path, mode);
 }
 
 int
 fs_mkdir(const char* path, mode_t mode)
 {
-    printf("mkdir @ %s\n", path);
+    // printf("\nmkdir @ %s\n", path);
     return storage_mknod(path, 040000 | mode);
 }
 
 int
 fs_rmdir(const char* path)
 {
-    printf("rmdir @ %s\n", path);
+    // printf("\nrmdir @ %s\n", path);
     return storage_unlink(path);    
 }
 
 int
 fs_unlink(const char *path)
 {
-    printf("unlink @ %s\n", path);
+    // printf("\nunlink @ %s\n", path);
     return storage_unlink(path);
 }
 
 int
 fs_truncate(const char *path, off_t size)
 {
-    printf("unlink @ %s\n", path);
+    // printf("\nunlink @ %s\n", path);
     return storage_unlink(path);
 }
 
 int
 fs_utimens(const char *path, const struct timespec ts[2])
 {
-    printf("utimens @ %s\n", path);
+    // printf("\nutimens @ %s\n", path);
     return storage_utimens(path, ts);
 }
 
 int
 fs_open(const char *path, struct fuse_file_info *fi)
 {
-    printf("open @ %s\n", path);
+    // printf("\nopen @ %s\n", path);
     int res;
     struct timespec ts;
 
@@ -86,21 +93,21 @@ fs_open(const char *path, struct fuse_file_info *fi)
 int
 fs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-    printf("read @ %s\n", path);
+    // printf("\nread @ %s\n", path);
     return storage_read(path, buf, size, offset);
 }
 
 int
 fs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-    printf("write @ %s\n", path);
+    // printf("\nwrite @ %s\n", path);
     return storage_write(path, buf, size, offset);
 }
 
 int
 fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
-    printf("readdir @ %s\n", path);
+    // printf("\nreaddir @ %s\n", path);
     int res;
     struct stat st;
     char itempath[200];
@@ -165,6 +172,7 @@ fs_init_ops(struct fuse_operations* ops)
 
     ops->getattr     = fs_getattr;
     ops->access      = fs_access;
+    ops->mknod       = fs_mknod;
     ops->mkdir       = fs_mkdir;
     ops->rmdir       = fs_rmdir;
     ops->unlink      = fs_unlink;
@@ -174,7 +182,6 @@ fs_init_ops(struct fuse_operations* ops)
     ops->read        = fs_read;
     ops->write       = fs_write;
     ops->readdir     = fs_readdir;
-    ops->truncate    = fs_truncate;
 }   
 
 int

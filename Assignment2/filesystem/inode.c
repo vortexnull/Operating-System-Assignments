@@ -26,7 +26,7 @@ alloc_inode()
         if(node->valid == 0){                   // if valid = 0 => inode is free
             memset(node, 0, sizeof(inode));
             node->valid = 1;
-            node->entries = -1;                 // -1 for regualar file, non-negative for directories
+            node->entries = 0;
             node->size = 0;
             node->mode = 010644;
             node->dptr[0] = alloc_block();
@@ -92,7 +92,7 @@ add_inode_block(inode* node)
         bnum = alloc_block();
 
         if(bnum == -ENOSPC){
-            printf("no space left\n");
+            // printf("no space left\n");
             abort();
         }
 
@@ -102,7 +102,7 @@ add_inode_block(inode* node)
         bnum = alloc_block();
 
         if(bnum == -ENOSPC){
-            printf("no space left\n");
+            // printf("no space left\n");
             abort();
         }
 
@@ -113,7 +113,7 @@ add_inode_block(inode* node)
             node->iptr = alloc_block();
 
             if(node->iptr == -ENOSPC){
-                printf("no space left\n");
+                // printf("no space left\n");
                 abort();
             }
         }
@@ -122,7 +122,7 @@ add_inode_block(inode* node)
         bnum = alloc_block();
 
         if(bnum == -ENOSPC){
-            printf("no space left\n");
+            // printf("no space left\n");
             abort();
         }
 
