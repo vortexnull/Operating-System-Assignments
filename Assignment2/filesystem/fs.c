@@ -12,21 +12,21 @@
 #define FUSE_USE_VERSION 26
 
 int
-fs_getattr(const char *path, struct stat *st)
+fs_getattr(const char *path, struct stat *st) //dtype1
 {
     printf("getattr @ %s", path);
     return storage_stat(path, st);
 }
 
 int
-fs_access(const char *path, int mask)
+fs_access(const char *path, int mask) //dtype2
 {
     printf("access @ %s", path);
     return storage_access(path, mask);
 }
 
 int
-fs_mkdir(const char* path, mode_t mode)
+fs_mkdir(const char* path, mode_t mode) //dtype3
 {
     printf("mkdir @ %s", path);
     return storage_mknod(path, 040000 | mode);
@@ -47,21 +47,21 @@ fs_unlink(const char *path)
 }
 
 int
-fs_truncate(const char *path, off_t size)
+fs_truncate(const char *path, off_t size) //dtype4
 {
-    printf("unlink @ %s", path);
-    return storage_unlink(path);
+    printf("truncate @ %s", path);
+    return storage_truncate(path, size);
 }
 
 int
-fs_utimens(const char *path, const struct timespec ts[2])
+fs_utimens(const char *path, const struct timespec ts[2]) //dtype5
 {
     printf("utimens @ %s", path);
-    return storage_utimens(path);
+    return storage_utimens(path, timespec);
 }
 
 int
-fs_open(const char *path, struct fuse_file_info *fi)
+fs_open(const char *path, struct fuse_file_info *fi) //dtype6
 {
     printf("open @ %s", path);
     int res;
@@ -82,21 +82,21 @@ fs_open(const char *path, struct fuse_file_info *fi)
 }
 
 int
-fs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+fs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) //dtype7
 {
     printf("read @ %s", path);
     return storage_read(path, buf, size, offset);
 }
 
 int
-fs_write(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+fs_write(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) //dtype7
 {
     printf("write @ %s", path);
     return storage_write(path, buf, size, offset);
 }
 
 int
-fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi))
+fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)) //dtype8
 {
     printf("readdir @ %s", path);
     int res;
@@ -154,18 +154,18 @@ fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, st
     return 0;
 }
 
-int
-fs_truncate(const char *path, off_t size)
-{
-    return storage_truncate(part, size);
-}
+//int
+//fs_truncate(const char *path, off_t size) //dtype4
+//{
+//    return storage_truncate(part, size);
+//}
 
 struct fuse_operations fs_ops;
 
 void
-fs_init_ops(struct fuse_operations* ops)
+fs_init_ops(struct fuse_operations* op)
 {
-    ops = {0};
+    op = {0};
 
     op->getattr     = fs_getattr;
     op->access      = fs_access;
@@ -186,7 +186,7 @@ main(int argc, char* argv[])
 {
     assert(argc > 2 && argc < 6);
     storage_init(argv[--argc]);
-    nufs_init_ops(&nufs_ops);
-    return fuse_main(argc, argv, &nufs_ops, NULL);
+    fs_init_ops(&fs_ops);
+    return fuse_main(argc, argv, &fs_ops, NULL);
 }
 
