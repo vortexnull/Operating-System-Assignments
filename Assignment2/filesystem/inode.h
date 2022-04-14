@@ -22,8 +22,8 @@ typedef struct inode{
 inode* get_inode(int inum);
 int alloc_inode();
 void free_inode();
-void rem_inode_block(inode* node, int numblocks);
-int add_inode_block(inode* node, int numblocks);
+void rem_inode_block(inode* node);
+int add_inode_block(inode* node);
 void shrink_inode(inode* node, int size);
 void grow_inode(inode* node, int size);
 int get_inode_bnum(inode* node, int fileptr);

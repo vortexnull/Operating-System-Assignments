@@ -1,3 +1,5 @@
+#include<errno.h>
+#include<stdio.h>
 #include<string.h>
 #include<assert.h>
 
@@ -10,11 +12,11 @@ void
 set_dirent(dirent* d, const char* name, int inum)
 {
     if(strlen(name) > MAX_FNAME){
-        strncpy(&(d->name), name, MAX_FNAME);
-        strcat(&(d->name), '\0');
+        strncpy(d->name, name, MAX_FNAME);
+        d->name[MAX_FNAME] = 0;
     }
     else
-        strcpy(&(d->name), name);
+        strcpy(d->name, name);
 
     d->inum = inum;
 }
@@ -29,12 +31,12 @@ init_directory_block(dirent* d)
 int
 directory_init()
 {
-    int inum = alloc_inum();
+    int inum = alloc_inode();
     inode* dd = get_inode(inum);
     dd->mode = 040755;
     dd->entries++;
 
-    dirent* d = get_inode_bnum(dd, 0);
+    dirent* d = get_inode_block(dd, 0);
     init_directory_block(d);
 
     return inum;
@@ -47,13 +49,15 @@ directory_put(inode* dd, const char* name, int inum)
 
     dirent *d = get_inode_block(dd, lastblock);
 
-    if(d[MAX_DIR_ENTRIES - 1].inum != -1){
+    if(d[MAX_DIR_ENTRIES - 1].inum == -1){
         int i = dd->entries - lastblock * MAX_DIR_ENTRIES;
+        printf("directory_put %s %d %d\n", name, inum, lastblock);
         set_dirent(&d[i], name, inum);
     }
     else{
-        d = (dirent*) get_block(add_inode_blocks(dd, 1));
+        d = (dirent*) get_block(add_inode_block(dd));
         init_directory_block(d);
+        printf("directory_put %s %d %d\n", name, inum, lastblock + 1);
         set_dirent(d, name, inum);
     }
 
@@ -71,7 +75,7 @@ directory_lookup(inode* dd, const char* name)
         d = (dirent*) get_inode_block(dd, blockindex);
         
         for(int i = 0; i < MAX_DIR_ENTRIES; i++){
-            if(d[i].inum != -1 && streq(d[i].name, name))
+            if(d[i].inum != -1 && strcmp(d[i].name, name) == 0)
                 return d[i].inum;
         }
     }
@@ -82,18 +86,19 @@ directory_lookup(inode* dd, const char* name)
 int
 tree_lookup(const char* path)
 {
-    assert(path[0] = '/');
+    assert(path[0] == '/');
 
-    if(streq(path, "/"))
+    if(strcmp(path, "/") == 0)
         return 0;
 
-    path++;
+    path = path + 1;
     int inum = 0;
     slist* pathlist = s_split(path, '/');
 
     while(pathlist){
         inode* dd = get_inode(inum);
-        inum = directory_lookup(inum, pathlist->data);
+        inum = directory_lookup(dd, pathlist->data);
+        printf("tree_lookup %s %d\n", pathlist->data, inum);
 
         if(inum < 0)
             return -ENOENT;
@@ -115,7 +120,7 @@ directory_delete(inode* dd, const char* name)
         d = (dirent*) get_inode_block(dd, blockindex);
         
         for(int i = 0; i < MAX_DIR_ENTRIES; i++){
-            if(d[i].inum != -1 && streq(d[i].name, name)){
+            if(d[i].inum != -1 && strcmp(d[i].name, name) == 0){
                 d = &d[i];
                 goto exitloop;
             }
@@ -123,11 +128,11 @@ directory_delete(inode* dd, const char* name)
     }
 
     if(blockindex > lastblock){
-        printf("directory_delete(): no entry found");
+        printf("directory_delete(): no entry found\n");
         return;
     }
 
-    exitloop:
+    exitloop: ;
 
     int inum = d->inum;
     int lastindex = dd->entries - lastblock * MAX_DIR_ENTRIES - 1;
@@ -148,7 +153,7 @@ directory_delete(inode* dd, const char* name)
     dtmp[lastindex].inum = -1;
 
     if(lastindex == 0)
-        rem_inode_block(dd, 1);
+        rem_inode_block(dd);
 
     dd->size -= sizeof(dirent);
     dd->entries--;

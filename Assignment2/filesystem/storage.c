@@ -1,12 +1,12 @@
 #include<time.h>
 #include<errno.h>
+#include<stdio.h>
 #include<alloca.h>
 #include<string.h>
 #include<unistd.h>
 #include<sys/stat.h>
 #include<sys/types.h>
 
-#include"slist.h"
 #include"inode.h"
 #include"blocks.h"
 #include"storage.h"
@@ -15,7 +15,7 @@
 void
 storage_init(const char *path)
 {
-    printf("storage_init()");
+    printf("storage_init()\n");
 
     blocks_init(path);
     directory_init();
@@ -24,28 +24,28 @@ storage_init(const char *path)
 int
 storage_stat(const char *path, struct stat *st)
 {
-    printf("storage_stat()");
+    printf("storage_stat()\n");
 
     int inum = tree_lookup(path);
     if (inum < 0){
-        printf("    + invalid inum");
+        printf("    + invalid inum\n");
         return -ENOENT;
     }
 
     inode *node = get_inode(inum);
 
-    st = {0};
+    memset(st, 0, sizeof(struct stat));
 
-    st_ino = inum;
+    st->st_ino = inum;
     st->st_mode = node->mode;
     st->st_uid = node->uid;
     st->st_gid = node->gid;
     st->st_size = node->size;
     st->st_blksize = BLOCK_SIZE;
     st->st_blocks = (node->size - 1 + BLOCK_SIZE) / BLOCK_SIZE;
-    st->st_atim = node->atime;
-    st->st_ctim = node->ctime;
-    st->st_mtim = node->mtime;
+    (st->st_atim).tv_sec = node->atime;
+    (st->st_ctim).tv_sec = node->ctime;
+    (st->st_mtim).tv_sec = node->mtime;
 
     return 0;
 }
@@ -53,23 +53,23 @@ storage_stat(const char *path, struct stat *st)
 int
 storage_read(const char *path, char *buf, size_t size, off_t offset)
 {
-    printf("storage_read()");
+    printf("storage_read()\n");
 
     int inum = tree_lookup(path);
     if (inum < 0){
-        printf("    + invlaid inum");
+        printf("    + invlaid inum\n");
         return -ENOENT;
     }
 
     inode *node = get_inode(inum);
 
     if (offset >= node->size){
-        printf("    + invalid offset (offset >= node->size)");
+        printf("    + invalid offset (offset >= node->size)\n");
         return 0;
     }
 
     if(offset + size > node->size){
-        printf("    + invalid offset (offset + size > node->size)");
+        printf("    + invalid offset (offset + size > node->size)\n");
         size = node->size - offset;
     }
 
@@ -80,7 +80,7 @@ storage_read(const char *path, char *buf, size_t size, off_t offset)
     int filebnum = startblock, bytestoread = 0;
 
     while(filebnum <= endblock){
-        block = (char*)get_inode_block(inum, filebnum);
+        block = (char*)get_inode_block(get_inode(inum), filebnum);
 
         if(filebnum == startblock){
             if(startblock == endblock)
@@ -107,11 +107,11 @@ storage_read(const char *path, char *buf, size_t size, off_t offset)
 int
 storage_write(const char *path, const char *buf, size_t size, off_t offset)
 {
-    printf("storage_write()");
+    printf("storage_write()\n");
 
     int res = storage_truncate(path, offset + size);
     if(res < 0){
-        printf("    + invlaid inum");
+        printf("    + invlaid inum\n");
         return res;        
     }
     
@@ -125,7 +125,7 @@ storage_write(const char *path, const char *buf, size_t size, off_t offset)
     int filebnum = startblock, bytestowrite = 0;
 
     while(filebnum <= endblock){
-        block = (char*)get_inode_block(inum, filebnum);
+        block = (char*)get_inode_block(get_inode(inum), filebnum);
 
         if(filebnum == startblock){
             if(startblock == endblock)
@@ -152,11 +152,11 @@ storage_write(const char *path, const char *buf, size_t size, off_t offset)
 int
 storage_truncate(const char *path, off_t size)
 {   
-    printf("storage_truncate()");
+    printf("storage_truncate()\n");
     
     int inum = tree_lookup(path);
     if(inum < 0){
-        printf("    + invalid inum");
+        printf("    + invalid inum\n");
         return -ENOENT;
     }
 
@@ -173,10 +173,10 @@ storage_truncate(const char *path, off_t size)
 int
 storage_mknod(const char *path, int mode)
 {
-    printf("storage_mknod()");
+    printf("storage_mknod()\n");
 
     if(tree_lookup(path) >= 0){
-        printf("    + file already exists at path");
+        printf("    + file already exists at path\n");
         return -EEXIST;
     }
 
@@ -194,8 +194,9 @@ storage_mknod(const char *path, int mode)
                 if(mode == 040755)
                     dd = directory_init();
                 else
-                    dd = alloc_inum();
+                    dd = alloc_inode();
                 
+                printf("%d %s %d\n", parentdd, pathlist->data, dd);
                 directory_put(get_inode(parentdd), pathlist->data, dd);
             }
             else{
@@ -216,12 +217,12 @@ storage_mknod(const char *path, int mode)
 slist*
 storage_list(const char *path)
 {   
-    printf("storage_list()");
+    printf("storage_list()\n");
 
     int inum = tree_lookup(path);
 
     if(inum < 0){
-        printf("    + invalid path");
+        printf("    + invalid path\n");
         return 0;
     }
 
@@ -231,20 +232,21 @@ storage_list(const char *path)
 int
 storage_unlink(const char *path)
 {
-    printf("storage_unlink()");
+    printf("storage_unlink()\n");
     
     char* name;
+    inode* node;
     int parentdd, dd = ROOT_INUM;
     slist* pathlist = s_split(path + 1, '/');
 
     while(pathlist != 0){
         parentdd = dd;
         name = pathlist->data;
-        inode* node = get_inode(parentdd);
+        node = get_inode(parentdd);
         dd = directory_lookup(node, pathlist->data);
 
         if(dd < 0){
-            printf("    + invalid path");
+            printf("    + invalid path\n");
             return -ENOENT;
         }
 
@@ -259,12 +261,12 @@ storage_unlink(const char *path)
 int
 storage_access(const char *path, int mode)
 {
-    printf("storage_access()");
+    printf("storage_access()\n");
     
     int inum = tree_lookup(path);
 
     if(inum < 0){
-        printf("    + invalid path");
+        printf("    + invalid path\n");
         return -ENOENT;
     }
 
@@ -292,12 +294,12 @@ storage_access(const char *path, int mode)
 int
 storage_utimens(const char *path, const struct timespec ts[2])
 {
-    printf("storage_utimens()");
+    printf("storage_utimens()\n");
 
     int inum = tree_lookup(path);
 
     if(inum < 0){
-        printf("    + invalid path");
+        printf("    + invalid path\n");
         return -ENOENT;
     }
 

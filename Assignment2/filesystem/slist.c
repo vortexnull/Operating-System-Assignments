@@ -1,5 +1,8 @@
 #include<alloca.h>
 #include<stdlib.h>
+#include<string.h>
+
+#include"slist.h"
 
 slist*
 s_cons(const char* text, slist* next)
@@ -27,7 +30,7 @@ slist*
 s_split(const char* text, char delim)
 {
     if(*text == 0)
-        return;
+        return 0;
     
     int partlen = 0;
     while(text[partlen] != delim && text[partlen] != 0)

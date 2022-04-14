@@ -1,10 +1,12 @@
 #include<fcntl.h>
 #include<errno.h>
 #include<unistd.h>
+#include<string.h>
 #include<stdint.h>
 #include<assert.h>
 #include<sys/mman.h>
 
+#include"blocks.h"
 #include"bitmap.h"
 
 static void* base = 0;
@@ -13,10 +15,10 @@ static int alloc_bnum = 29;
 void
 blocks_init(const char* path)
 {
-    int fd = open(path, O_CREAT | O_RDWR, 0644);
+    int fd = open(path, O_CREAT | O_RDWR, 0777);
     assert(fd != -1);
 
-    int rv = ftruncate(pages_fd, NUFS_SIZE);
+    int rv = ftruncate(fd, FS_SIZE);
     assert(rv != -1);
 
     base = mmap(NULL, FS_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -59,7 +61,7 @@ alloc_block()
     uint8_t* block_bitmap = get_block_bitmap();
 
     for(int i = 0; i < BLOCK_COUNT; i++){
-        if(bitmap_get(alloc_bnum) == 0){
+        if(bitmap_get(block_bitmap, alloc_bnum) == 0){
             bitmap_put(block_bitmap, alloc_bnum, 1);
             memset(get_block(alloc_bnum), 0, BLOCK_SIZE);
             return alloc_bnum;

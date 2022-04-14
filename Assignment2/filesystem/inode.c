@@ -1,6 +1,7 @@
 #include<time.h>
 #include<errno.h>
 #include<stdio.h>
+#include<string.h>
 #include<unistd.h>
 #include<assert.h>
 #include<stdlib.h>
@@ -13,7 +14,7 @@ get_inode(int inum)
 {   
     assert(inum < INODE_COUNT);
     inode* nodes = get_block(1);
-    return &inode[inum];
+    return &nodes[inum];
 }
 
 int
@@ -24,6 +25,7 @@ alloc_inode()
 
         if(node->valid == 0){                   // if valid = 0 => inode is free
             memset(node, 0, sizeof(inode));
+            node->valid = 1;
             node->entries = -1;                 // -1 for regualar file, non-negative for directories
             node->size = 0;
             node->mode = 010644;
@@ -62,7 +64,7 @@ rem_inode_block(inode* node)
 
     if(node->iptr){
         int* iptr_block = get_block(node->iptr);
-        free_block(iptr_block[lastblock - 2])
+        free_block(iptr_block[lastblock - 2]);
         iptr_block[lastblock - 2] = 0;
 
         if(iptr_block[0] == 0){
@@ -70,12 +72,12 @@ rem_inode_block(inode* node)
             node->iptr = 0;
         }
     }
-    else if(node->dptr[1){
+    else if(node->dptr[1]){
         free_block(node->dptr[1]);
         node->dptr[1] = 0;
     }
     else{
-        free_block(node->dptr[0])
+        free_block(node->dptr[0]);
         node->dptr[0] = 0;
     }        
 }
@@ -84,31 +86,47 @@ int
 add_inode_block(inode* node)
 {   
     int node_numblocks = (node->size - 1 + BLOCK_SIZE) / BLOCK_SIZE;
-    int lastblock = node_numblocks - 1;
+    int bnum;
 
-    int bnum = alloc_block();
+    if(!node->dptr[0]){
+        bnum = alloc_block();
 
-    if(bnum == -ENOSPC){
-        printf("no space left");
-        abort();
-    }
+        if(bnum == -ENOSPC){
+            printf("no space left\n");
+            abort();
+        }
 
-    if(!node->dptr[0])
         node->dptr[0] = bnum;
-    else if(!node->dptr[1])
+    }
+    else if(!node->dptr[1]){
+        bnum = alloc_block();
+
+        if(bnum == -ENOSPC){
+            printf("no space left\n");
+            abort();
+        }
+
         node->dptr[1] = bnum;
+    }
     else{
         if(!node->iptr){
             node->iptr = alloc_block();
 
             if(node->iptr == -ENOSPC){
-                printf("no space left");
-                rabort();
+                printf("no space left\n");
+                abort();
             }
         }
         
         int* iptr_block = get_block(node->iptr);
-        iptr_block[node_numblocks + i - 2] = bnum;
+        bnum = alloc_block();
+
+        if(bnum == -ENOSPC){
+            printf("no space left\n");
+            abort();
+        }
+
+        iptr_block[node_numblocks - 2] = bnum;
     }
 
     return bnum;
@@ -174,7 +192,7 @@ get_inode_block(inode* node, int blockindex)
     else if(blockindex == 1)
         return get_block(node->dptr[1]);
     else{
-        int* iptr_block = get_block(node->iptr)
+        int* iptr_block = get_block(node->iptr);
         return get_block(iptr_block[blockindex - 2]);
     }
 }

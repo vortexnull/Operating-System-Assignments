@@ -1,69 +1,71 @@
-#include<fuse.h>
 #include<time.h>
 #include<errno.h>
 #include<stdio.h>
+#include<assert.h>
+#include<string.h>
 #include<sys/stat.h>
 
-#include"slist.h"
 #include"inode.h"
 #include"storage.h"
 #include"directory.h"
 
 #define FUSE_USE_VERSION 26
 
+#include<fuse.h>
+
 int
 fs_getattr(const char *path, struct stat *st)
 {
-    printf("getattr @ %s", path);
+    printf("getattr @ %s\n", path);
     return storage_stat(path, st);
 }
 
 int
 fs_access(const char *path, int mask)
 {
-    printf("access @ %s", path);
+    printf("access @ %s\n", path);
     return storage_access(path, mask);
 }
 
 int
 fs_mkdir(const char* path, mode_t mode)
 {
-    printf("mkdir @ %s", path);
+    printf("mkdir @ %s\n", path);
     return storage_mknod(path, 040000 | mode);
 }
 
 int
 fs_rmdir(const char* path)
 {
-    printf("rmdir @ %s", path);
+    printf("rmdir @ %s\n", path);
     return storage_unlink(path);    
 }
 
 int
 fs_unlink(const char *path)
 {
-    printf("unlink @ %s", path);
+    printf("unlink @ %s\n", path);
     return storage_unlink(path);
 }
 
 int
 fs_truncate(const char *path, off_t size)
 {
-    printf("unlink @ %s", path);
+    printf("unlink @ %s\n", path);
     return storage_unlink(path);
 }
 
 int
 fs_utimens(const char *path, const struct timespec ts[2])
 {
-    printf("utimens @ %s", path);
-    return storage_utimens(path);
+    printf("utimens @ %s\n", path);
+    return storage_utimens(path, ts);
 }
 
 int
 fs_open(const char *path, struct fuse_file_info *fi)
 {
-    printf("open @ %s", path);
+    printf("open @ %s\n", path);
     int res;
     struct timespec ts;
 
@@ -84,33 +86,33 @@ fs_open(const char *path, struct fuse_file_info *fi)
 int
 fs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-    printf("read @ %s", path);
+    printf("read @ %s\n", path);
     return storage_read(path, buf, size, offset);
 }
 
 int
-fs_write(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+fs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-    printf("write @ %s", path);
+    printf("write @ %s\n", path);
     return storage_write(path, buf, size, offset);
 }
 
 int
-fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi))
+fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
-    printf("readdir @ %s", path);
+    printf("readdir @ %s\n", path);
     int res;
     struct stat st;
     char itempath[200];
 
     slist* items = storage_list(path);
 
-    if(s == 0)
+    if(items == 0)
         return -1;
 
     for(slist* s = items; s != 0; s = s->next){
 
-        if(strcmp(path, "/")){
+        if(strcmp(path, "/") == 0){
             itempath[0] = '/';
 
             int len = strlen(s->data);
@@ -154,31 +156,25 @@ fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, st
     return 0;
 }
 
-int
-fs_truncate(const char *path, off_t size)
-{
-    return storage_truncate(part, size);
-}
-
 struct fuse_operations fs_ops;
 
 void
 fs_init_ops(struct fuse_operations* ops)
 {
-    ops = {0};
+    memset(ops, 0, sizeof(struct fuse_operations));
 
-    op->getattr     = fs_getattr;
-    op->access      = fs_access;
-    op->mkdir       = fs_mkdir;
-    op->rmdir       = fs_rmdir;
-    op->unlink      = fs_unlink;
-    op->truncate    = fs_truncate;
-    op->utimens     = fs_utimens;
-    op->open        = fs_open;
-    op->read        = fs_read;
-    op->write       = fs_write;
-    op->readdir     = fs_readdir;
-    op->truncate    = fs_truncate;
+    ops->getattr     = fs_getattr;
+    ops->access      = fs_access;
+    ops->mkdir       = fs_mkdir;
+    ops->rmdir       = fs_rmdir;
+    ops->unlink      = fs_unlink;
+    ops->truncate    = fs_truncate;
+    ops->utimens     = fs_utimens;
+    ops->open        = fs_open;
+    ops->read        = fs_read;
+    ops->write       = fs_write;
+    ops->readdir     = fs_readdir;
+    ops->truncate    = fs_truncate;
 }   
 
 int
@@ -186,7 +182,7 @@ main(int argc, char* argv[])
 {
     assert(argc > 2 && argc < 6);
     storage_init(argv[--argc]);
-    nufs_init_ops(&nufs_ops);
-    return fuse_main(argc, argv, &nufs_ops, NULL);
+    fs_init_ops(&fs_ops);
+    return fuse_main(argc, argv, &fs_ops, NULL);
 }
 

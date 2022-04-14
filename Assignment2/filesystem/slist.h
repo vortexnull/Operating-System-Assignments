@@ -1,4 +1,4 @@
-typedef struct slist {
+typedef struct slist{
     char* data;
     struct slist* next;
 } slist;
